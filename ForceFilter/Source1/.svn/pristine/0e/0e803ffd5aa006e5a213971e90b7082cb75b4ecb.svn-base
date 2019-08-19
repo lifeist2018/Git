@@ -1,0 +1,55 @@
+#include "Filter.h"
+
+ForceFilter::ForceFilter ()
+{
+	m_RobotController=RobotController::instance();
+	this->m_FilterTimer=new QTimer();
+	this->m_FilterTimer->setInterval(8);
+	memset(m_Count,0,sizeof(m_Count));
+
+	connect(this->m_FilterTimer, SIGNAL(timeout()), this, SLOT(slotFilterTimerDone()));
+	connect(&m_Thread, &QThread::finished, this, &QObject::deleteLater);
+	m_Thread.start();
+	this->m_FilterTimer->start();
+
+}
+
+ForceFilter::~ForceFilter ()
+{
+
+}
+
+void ForceFilter::GetForce(double force[6])
+{
+	for(int i=0;i<6;i++)
+	{
+		force[i]=m_ForceOut[i];
+	}
+}
+
+void ForceFilter::GetForceIn()
+{
+	m_RobotController->GetTcpForce(m_ForceIn);
+}
+
+void ForceFilter::EliminateJitterFilter()
+{
+	for(int i=0;i<6;i++)
+	{
+		if(abs(m_ForceOut[i]-m_ForceIn[i])>Threshold)
+		{
+			m_Count[i]++;
+			if(m_Count[i]>=Count) 
+			{
+				m_ForceOut[i]=m_ForceIn[i];
+				m_Count[i]=0;
+			}
+		}
+	}
+}
+
+void ForceFilter::slotFilterTimerDone()
+{
+	GetForceIn();
+	EliminateJitterFilter();
+}
